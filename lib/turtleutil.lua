@@ -9,6 +9,12 @@ local Direction = {
     LEFT = 3
 }
 
+local InteractDirection = {
+    UP = 0,
+    FORWARD = 1,
+    DOWN = 2
+}
+
 -- Keeps track of the turtle's current direction, just relative to initial position facing down the bridge
 local currentDirection = Direction.FORWARD
 
@@ -30,34 +36,66 @@ function setDirection(targetDirection)
     currentDirection = targetDirection
 end
 
-local function safeForward(t)
-    tableUtil.fillDefaults(t, {
+local function safeMove(args)
+    args = tableUtil.fillDefaults(args, {
         doDig = false,
+        direction = InteractDirection.FORWARD,
         retries = 1,
-        sleepTime = 0
+        sleepTime = 0,
+        attack = false,
+        attackSide = nil,
+        errorOut = false
     })
 
-    local doDig = t.doDig
-    local retries = t.retries
-    local sleepTime = t.sleepTime or 0
+    local move = turtle.forward
+    local dig = turtle.dig
+    if args.direction == InteractDirection.UP then
+        move = turtle.up
+        dig = turtle.digUp
+    elseif args.direction == InteractDirection.DOWN then
+        move = turtle.down
+        dig = turtle.digDown
+    end
 
-    for i = 1, retries do
-        if turtle.forward() then
+    for i = 1, args.retries do
+        if move() then
             return true
         end
-        if doDig and turtle.dig() and turtle.forward() then
+        if args.doDig and dig() and move() then
             return true
         end
-        if sleepTime > 0 then
-            os.sleep(sleepTime)
+        if args.attack then
+            turtle.attack(args.attackSide)
+        end
+        if args.sleepTime > 0 then
+            os.sleep(args.sleepTime)
+        end
+    end
+    if args.errorOut then
+        if args.direction == InteractDirection.FORWARD then
+            error("Failed to move forward after retries")
+        elseif args.direction == InteractDirection.UP then
+            error("Failed to move up after retries")
+        elseif args.direction == InteractDirection.DOWN then
+            error("Failed to move down after retries")
         end
     end
     return false
 end
 
 local function findBlock(placeableBlocks)
+    -- if not array then make placeableBlocks an array
+    if placeableBlocks ~= nil and type(placeableBlocks) ~= "table" then
+        placeableBlocks = {placeableBlocks}
+    end
+
     for slot = 1, 16 do
         if turtle.getItemCount(slot) > 0 then
+            if placeableBlocks == nil then
+                turtle.select(slot)
+                return true
+            end
+
             local detail = turtle.getItemDetail(slot)
             if detail and detail.name then
                 for _, block in ipairs(placeableBlocks) do
@@ -72,17 +110,180 @@ local function findBlock(placeableBlocks)
     return false
 end
 
-local function findBlockAndPlace(placeableBlocks)
-    if findBlock(placeableBlocks) then
-        turtle.place()
-        return true
+local function findBlockAndPlace(args)
+    args = tableUtil.fillDefaults(args, {
+        placeableBlocks = nil, -- any
+        place = turtle.place
+    })
+    if findBlock(args.placeableBlocks) then
+        return args.place()
     end
-    return false
+    return false, "Cannot find block"
+end
+
+local function ensurePlace(args)
+    args = tableUtil.fillDefaults(args, {
+        direction = InteractDirection.FORWARD,
+        placeableBlocks = nil, -- any
+        retries = 1,
+        attack = false,
+        sleepTime = 0,
+        attackSide = nil,
+        errorOut = false
+    })
+
+    local place = nil
+    if args.direction == InteractDirection.FORWARD then
+        place = turtle.place
+    elseif args.direction == InteractDirection.UP then
+        place = turtle.placeUp
+    elseif args.direction == InteractDirection.DOWN then
+        place = turtle.placeDown
+    end
+
+    if place == nil then
+        error("Invalid direction for ensurePlace")
+    end
+
+    for i = 1, args.retries do
+        local result = findBlockAndPlace({
+            placeableBlocks = args.placeableBlocks,
+            place = place
+        })
+        if result then
+            return true
+        end
+
+        if args.attack then
+            turtle.attack(args.attackSide)
+        end
+
+        if args.sleepTime > 0 then
+            os.sleep(args.sleepTime)
+        end
+    end
+    if args.errorOut then
+        error("Failed to place block after retries")
+    end
+    return false, "Failed to place block after retries"
+end
+
+local function ensureDig(args)
+    args = tableUtil.fillDefaults(args, {
+        direction = InteractDirection.FORWARD,
+        retries = 1,
+        sleepTime = 0,
+        errorOut = false
+    })
+
+    local dig = nil
+    if args.direction == InteractDirection.FORWARD then
+        dig = turtle.dig
+    elseif args.direction == InteractDirection.UP then
+        dig = turtle.digUp
+    elseif args.direction == InteractDirection.DOWN then
+        dig = turtle.digDown
+    end
+
+    if dig == nil then
+        error("Invalid direction for ensureDig")
+    end
+
+    for i = 1, args.retries do
+        local hasDug, reason = dig()
+        if hasDug then
+            return true
+        elseif reason == "Nothing to dig here" then
+            return true
+        end
+
+        if args.sleepTime > 0 then
+            os.sleep(args.sleepTime)
+        end
+    end
+    if args.errorOut then
+        if args.direction == InteractDirection.FORWARD then
+            error("Failed to dig forward after retries")
+        elseif args.direction == InteractDirection.UP then
+            error("Failed to dig up after retries")
+        elseif args.direction == InteractDirection.DOWN then
+            error("Failed to dig down after retries")
+        end
+    end
+    return false, "Failed to dig after retries"
+end
+
+local function oppositeDirection(direction)
+    return (direction + 2) % 4
+end
+
+local function ensureReplace(args)
+    args = tableUtil.fillDefaults(args, {
+        direction = InteractDirection.FORWARD,
+        placeableBlocks = nil, -- any
+        retries = 1,
+        attack = false,
+        sleepTime = 0,
+        attackSide = nil,
+        errorOut = false
+    })
+
+    -- turn placeableBlocks into array
+    if args.placeableBlocks ~= nil and type(args.placeableBlocks) ~= "table" then
+        args.placeableBlocks = {args.placeableBlocks}
+    end
+
+    local inspect = nil
+    if args.direction == InteractDirection.FORWARD then
+        inspect = turtle.inspect
+    elseif args.direction == InteractDirection.UP then
+        inspect = turtle.inspectUp
+    elseif args.direction == InteractDirection.DOWN then
+        inspect = turtle.inspectDown
+    end
+
+    local replace = function()
+        return ensureDig(args) and ensurePlace(args)
+    end
+
+    if replace == nil or inspect == nil then
+        error("Invalid direction for ensureReplace")
+    end
+
+    for i = 1, args.retries do
+        local hasBlock, inspectResult = inspect()
+        if hasBlock and inspectResult.name ~= nil and
+            (args.placeableBlocks == nil or tableUtil.contains(args.placeableBlocks, inspectResult.name)) then
+            return true
+        end
+
+        local result = replace()
+        if result then
+            return true
+        end
+
+        if args.attack then
+            turtle.attack(args.attackSide)
+        end
+
+        if args.sleepTime > 0 then
+            os.sleep(args.sleepTime)
+        end
+    end
+    if args.errorOut then
+        error("Failed to replace block after retries")
+    end
+    return false, "Failed to replace block after retries"
 end
 
 return {
     setDirection = setDirection,
     Direction = Direction,
-    safeForward = safeForward,
-    findBlock = findBlock
+    InteractDirection = InteractDirection,
+    oppositeDirection = oppositeDirection,
+    safeMove = safeMove,
+    findBlock = findBlock,
+    ensurePlace = ensurePlace,
+    ensureDig = ensureDig,
+    ensureReplace = ensureReplace
 }

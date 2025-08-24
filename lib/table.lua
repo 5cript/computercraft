@@ -20,6 +20,7 @@ function dump(o)
 end
 
 function fillDefaults(t, defaults)
+    t = t or {}
     for k, v in pairs(defaults) do
         if t[k] == nil then
             t[k] = v
@@ -28,8 +29,18 @@ function fillDefaults(t, defaults)
     return t
 end
 
+function contains(t, element)
+    for _, v in ipairs(t) do
+        if v == element then
+            return true
+        end
+    end
+    return false
+end
+
 return {
     saveTable = saveTable,
     dump = dump,
-    fillDefaults = fillDefaults
+    fillDefaults = fillDefaults,
+    contains = contains
 }

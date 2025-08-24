@@ -17,11 +17,16 @@ print("Building bridge with width " .. width .. " and depth " .. depth)
 local setDirection = turtleUtil.setDirection
 local Direction = turtleUtil.Direction
 
-local function safeForward()
-    return turtleUtil.safeForward({
+local function safeMove(direction)
+    return turtleUtil.safeMove({
         doDig = true,
-        retries = 2
+        retries = 2,
+        direction = direction
     })
+end
+
+local function safeForward()
+    return safeMove(Direction.InteractDirection.FORWARD)
 end
 
 -- Moves the turtle away from the rim
