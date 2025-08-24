@@ -1,3 +1,7 @@
+package.path = "../?.lua;" .. package.path
+
+tableUtil = require("lib.table")
+
 -- Set the width and height of each step
 local args = {...}
 
@@ -12,26 +16,8 @@ local digCounter = 0
 local digTillCursorForwardMax = 10
 local overflowSlotMax = 8
 
-local function saveTable(table, filename)
-    local file = fs.open(filename, "w")
-    file.write(textutils.serialize(table))
-    file.close()
-end
-
-function dump(o)
-    if type(o) == 'table' then
-        local s = '{ '
-        for k, v in pairs(o) do
-            if type(k) ~= 'number' then
-                k = '"' .. k .. '"'
-            end
-            s = s .. '[' .. k .. '] = ' .. dump(v) .. ','
-        end
-        return s .. '} '
-    else
-        return tostring(o)
-    end
-end
+local saveTable = tableUtil.saveTable
+local dump = tableUtil.dump
 
 local function tryPlatform(conditional)
     if (conditional == false) then
