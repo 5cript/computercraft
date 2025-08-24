@@ -55,8 +55,34 @@ local function safeForward(t)
     return false
 end
 
+local function findBlock(placeableBlocks)
+    for slot = 1, 16 do
+        if turtle.getItemCount(slot) > 0 then
+            local detail = turtle.getItemDetail(slot)
+            if detail and detail.name then
+                for _, block in ipairs(placeableBlocks) do
+                    if detail.name == block then
+                        turtle.select(slot)
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
+local function findBlockAndPlace(placeableBlocks)
+    if findBlock(placeableBlocks) then
+        turtle.place()
+        return true
+    end
+    return false
+end
+
 return {
     setDirection = setDirection,
     Direction = Direction,
-    safeForward = safeForward
+    safeForward = safeForward,
+    findBlock = findBlock
 }

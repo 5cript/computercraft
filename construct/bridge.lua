@@ -51,23 +51,11 @@ end
 local placeableBlocks = {"minecraft:stone", "minecraft:cobblestone", "minecraft:oak_planks"}
 
 local function findBlock()
-    for slot = 1, 16 do
-        if turtle.getItemCount(slot) > 0 then
-            local detail = turtle.getItemDetail(slot)
-            if detail and detail.name then
-                for _, block in ipairs(placeableBlocks) do
-                    if detail.name == block then
-                        turtle.select(slot)
-                        return true
-                    end
-                end
-            end
-        end
-    end
-    return false
+    return turtleUtil.findBlock(placeableBlocks)
 end
 
 local function placeDigAction()
+    findBlock()
     turtle.placeDown()
     turtle.digUp()
 end
@@ -120,6 +108,7 @@ local function doBridgeLine()
 
     if placeRailings == "y" then
         setTargetDirection(true)
+        findBlock()
         turtle.place()
     end
 
@@ -139,6 +128,7 @@ local function doBridgeLine()
     end
 
     if placeRailings == "y" then
+        findBlock()
         turtle.place()
     end
 
