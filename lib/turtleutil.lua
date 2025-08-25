@@ -36,6 +36,10 @@ function setDirection(targetDirection)
     currentDirection = targetDirection
 end
 
+local function turnAround()
+    setDirection((currentDirection + 2) % 4)
+end
+
 local function safeMove(args)
     args = tableUtil.fillDefaults(args, {
         doDig = false,
@@ -285,5 +289,7 @@ return {
     findBlock = findBlock,
     ensurePlace = ensurePlace,
     ensureDig = ensureDig,
-    ensureReplace = ensureReplace
+    ensureReplace = ensureReplace,
+    turnAround = turnAround,
+    currentDirection = function() return currentDirection end
 }

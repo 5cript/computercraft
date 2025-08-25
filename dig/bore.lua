@@ -1,60 +1,37 @@
 package.path = "../?.lua;" .. package.path
 
 tableUtil = require("lib.table")
+turtleUtil = require("lib.turtleutil")
 
 -- Set the width and height of each step
 local args = {...}
 
-local width = 3
-local height = 5
-local depth = 0
-local lrFlip = false
-local udFlip = false
-local enderChestModItemNames = {"enderchests:ender_chest", "enderstorage:ender_chest"}
-local hasEnderChest = false
-local digCounter = 0
-local digTillCursorForwardMax = 10
-local overflowSlotMax = 8
-
 local saveTable = tableUtil.saveTable
 local dump = tableUtil.dump
 
-local function tryPlatform(conditional)
-    if (conditional == false) then
-        return
-    end
-    if (turtle.detectDown() == false) then
-        for i = 1, 15, 1 do
-            local result, why = turtle.placeDown()
-            if (result == false) then
-                local slot = turtle.getSelectedSlot() + 1
-                if (slot > 15) then
-                    slot = 1
-                end
-                turtle.select(slot)
-            else
-                break
-            end
-        end
-    end
-end
+local setDirection = turtleUtil.setDirection
+local Direction = turtleUtil.Direction
+local InteractDirection = turtleUtil.InteractDirection
+
+local width = 3
+local height = 5
+local depth = 0
+local enderChestModItemNames = {"enderchests:ender_chest", "enderstorage:ender_chest"}
+local hasEnderChest = false
+local overflowSlotMax = 8
+local retries = 5
+local moveDirection = Direction.LEFT
 
 local function forwardItemCursor()
-    digCounter = digCounter + 1
-    if (digCounter == digTillCursorForwardMax) then
-        digCounter = 0
-    else
-        return
-    end
-
     local slot = turtle.getSelectedSlot()
     for i = turtle.getSelectedSlot(), 15, 1 do
-        turtle.select(i)
         slot = i
+        turtle.select(slot)
         if (turtle.getItemCount() == 0) then
             break
         end
     end
+    turtle.select(1)
 
     if (slot > overflowSlotMax) then
         if (hasEnderChest) then
@@ -81,254 +58,245 @@ local function forwardItemCursor()
             turtle.select(1)
         end
     else
-        print("Not overflowing yet")
+        -- not overflowing yet
     end
-    turtle.select(1)
-end
-
-local function turnLeft()
-    if (lrFlip) then
-        turtle.turnRight()
-    else
-        turtle.turnLeft()
-    end
-end
-
-local function goUp()
-    if (not udFlip) then
-        return turtle.up()
-    else
-        return turtle.down()
-    end
-end
-
-local function goDown()
-    if (not udFlip) then
-        return turtle.down()
-    else
-        return turtle.up()
-    end
-end
-
-local function turnRight()
-    if (lrFlip) then
-        turtle.turnLeft()
-    else
-        turtle.turnRight()
-    end
-end
-
-local function safeDig()
-    -- while turtle.detect() do
-    --     turtle.dig()
-    --     sleep(0.5)
-    -- end
-    turtle.dig()
-    forwardItemCursor()
-end
-
-local safeDigDown = nil
-local safeDigUp = nil
-
-safeDigUp = function(fromFlip)
-    if (udFlip and not fromFlip) then
-        return safeDigDown(true)
-    end
-    -- while turtle.detectUp() do
-    --     turtle.digUp()
-    --     sleep(0.5)
-    -- end
-    turtle.digUp()
-end
-
-safeDigDown = function(fromFlip)
-    if (udFlip and not fromFlip) then
-        return safeDigUp(true)
-    end
-    -- while turtle.detectDown() do
-    --     turtle.digDown()
-    --     sleep(0.5)
-    -- end
-    turtle.digDown()
-end
-
-local function safeForward()
-    local max = 10
-    while turtle.forward() == false do
-        safeDig()
-        max = max - 1
-        if max == 0 then
-            print("Could not move forward")
-            shell.exit()
-        end
-    end
-end
-
-local function safeUp()
-    local max = 10
-    while goUp() == false do
-        safeDigUp(false)
-        max = max - 1
-        if max == 0 then
-            print("Could not move up")
-            shell.exit()
-        end
-    end
-end
-
-local function safeDown()
-    local max = 10
-    while goDown() == false do
-        safeDigDown(false)
-        max = max - 1
-        if max == 0 then
-            print("Could not move down")
-            shell.exit()
-        end
-    end
-end
-
-local function flipLR()
-    lrFlip = not lrFlip
-end
-
-local function flipUD()
-    udFlip = not udFlip
-end
-
-local function turnAround()
-    turnRight()
-    turnRight()
 end
 
 -- forward dig
-local function line1(inject, ...)
-    for i = 1, width - 1, 1 do
-        inject(...)
-        safeForward()
+local function height1Line(moveDirection)
+    for i = 1, width, 1 do
+        turtleUtil.safeMove({
+            doDig = true,
+            retries = retries,
+            sleepTime = 0.5,
+            errorOut = true,
+            direction = moveDirection
+        })
+        forwardItemCursor()
     end
 end
 
 -- forward and upward dig
-local function line2(inject, ...)
-    for i = 1, width - 1, 1 do
-        inject(...)
-        safeDigUp(false)
-        safeForward()
+local function height2Line(moveDirection)
+    for i = 1, width, 1 do
+        turtleUtil.ensureDig({
+            direction = InteractDirection.UP,
+            retries = retries,
+            sleepTime = 0.5,
+            errorOut = true
+        })
+        turtleUtil.safeMove({
+            doDig = true,
+            retries = retries,
+            sleepTime = 0.5,
+            errorOut = true,
+            direction = moveDirection
+        })
+        forwardItemCursor()
     end
-    safeDigUp(false)
+    turtleUtil.ensureDig({
+        direction = InteractDirection.UP,
+        retries = retries,
+        sleepTime = 0.5,
+        errorOut = true
+    })
+    forwardItemCursor()
 end
 
 -- forward, upward, and downward dig
-local function line3()
-    safeUp()
-    for i = 1, width - 1, 1 do
-        safeDigDown(false)
-        safeDigUp(false)
-        safeForward()
+local function height3Line(moveDirection)
+    turtleUtil.safeMove({
+        doDig = true,
+        retries = retries,
+        sleepTime = 0.5,
+        errorOut = true,
+        direction = InteractDirection.UP
+    })
+    for i = 1, width, 1 do
+        turtleUtil.ensureDig({
+            direction = InteractDirection.DOWN,
+            retries = retries,
+            sleepTime = 0.5,
+            errorOut = true
+        })
+        turtleUtil.ensureDig({
+            direction = InteractDirection.UP,
+            retries = retries,
+            sleepTime = 0.5,
+            errorOut = true
+        })
+        turtleUtil.safeMove({
+            doDig = true,
+            retries = retries,
+            sleepTime = 0.5,
+            errorOut = true,
+            direction = moveDirection
+        })
+        forwardItemCursor()
     end
-    safeDigDown(false)
-    safeDigUp(false)
+    turtleUtil.ensureDig({
+        direction = InteractDirection.DOWN,
+        retries = retries,
+        sleepTime = 0.5,
+        errorOut = true
+    })
+    turtleUtil.ensureDig({
+        direction = InteractDirection.UP,
+        retries = retries,
+        sleepTime = 0.5,
+        errorOut = true
+    })
+    forwardItemCursor()
+end
+
+local function moveUp()
+    turtleUtil.safeMove({
+        doDig = true,
+        retries = retries,
+        sleepTime = 0.5,
+        errorOut = true,
+        direction = InteractDirection.UP
+    })
+    forwardItemCursor()
 end
 
 local function buildLayerPlan()
+    local height3Amount = math.floor(height / 3)
+    local height2Amount = 0
+    local height1Amount = 0
+    local remainder = height % 3
+    if remainder == 2 then
+        height2Amount = 1
+    elseif remainder == 1 then
+        height1Amount = 1
+    end
+
+    print("Height 3 lines: " .. height3Amount)
+    print("Height 2 lines: " .. height2Amount)
+    print("Height 1 lines: " .. height1Amount)
+
+    local lineSum = height3Amount + height2Amount + height1Amount
+    local onOppositeSide = lineSum % 2 == 1
     local plan = {}
-    plan["line3"] = {
-        count = math.floor(height / 3),
-        func = line3
-    }
-    plan["line2"] = {
-        count = math.max(0, math.floor((height - plan["line3"].count * 3) / 2)),
-        func = line2
-    }
-    plan["line1"] = {
-        count = math.max(0, height - plan["line3"].count * 3 - plan["line2"].count * 2),
-        func = line1
-    }
 
-    -- postLine functions
-    if plan["line1"].count > 0 then
-        plan["line1"].cont = function()
-            if plan["line2"].count + plan["line3"].count > 0 then
-                safeUp()
-                turnAround()
-            else
-                turnRight()
-            end
-            flipLR()
-        end
-    end
-    plan["line1"].postLine = function()
+    if onOppositeSide then
+        print("Ending on opposite side")
+    else
+        print("Ending on starting side")
     end
 
-    if plan["line2"].count > 0 then
-        plan["line2"].cont = function()
-            safeUp()
-            turnRight()
-            if plan["line3"].count > 0 then
-                turnRight()
-                safeUp()
+    table.insert(plan, function() turtleUtil.safeMove({
+        doDig = true,
+        retries = retries,
+        sleepTime = 0.5,
+        errorOut = true,
+        direction = InteractDirection.FORWARD
+    }) end)
+
+    table.insert(plan, function() setDirection(moveDirection) end)
+
+    if (height3Amount > 0) then
+        table.insert(plan, function() 
+            for i = 1, height3Amount do 
+                height3Line(turtleUtil.currentDirection())
+                turtleUtil.turnAround()
+
+                -- go up if there is more height 3 lines to do
+                if i < height3Amount then
+                    moveUp()
+                    moveUp()
+                    -- last move up is done by heigh3Line
+                end
             end
-            flipLR()
-        end
-    end
-    plan["line2"].postLine = function()
+        end)
     end
 
-    if plan["line3"].count > 0 then
-        plan["line3"].cont = function(isLast)
-            if isLast then
-                turnRight()
-            else
-                turnAround()
-                safeUp()
+    if (height2Amount > 0) then
+        table.insert(plan, function() 
+            if (height3Amount > 0) then
+                moveUp()
+                moveUp()
             end
-            safeUp()
-            flipLR()
+
+            height2Line(turtleUtil.currentDirection())
+            turtleUtil.turnAround()
+
+            if (height1Amount > 0) then
+                moveUp()
+            end
+        end)
+    end
+
+    if (height1Amount > 0) then
+        table.insert(plan, function() 
+            if (height3Amount > 0 and height2Amount == 0) then
+                moveUp()
+                moveUp()
+            elseif (height2Amount > 0) then
+                moveUp()
+            end
+
+            height1Line(turtleUtil.currentDirection())
+            turtleUtil.turnAround()
+        end)
+    end
+
+    table.insert(plan, function() 
+        -- Move back down to the base of the layer
+        print("Moving down " .. (height - 1 + height1Amount) .. " times")
+        for i = 1, height - 2 do
+            turtleUtil.safeMove({
+                doDig = false,
+                retries = retries,
+                sleepTime = 0.5,
+                errorOut = true,
+                direction = InteractDirection.DOWN
+            })
         end
+        if height1Amount == 1 then
+            turtleUtil.safeMove({
+                doDig = false,
+                retries = retries,
+                sleepTime = 0.5,
+                errorOut = true,
+                direction = InteractDirection.DOWN
+            })
+        end
+    end)
+
+    -- Move back to the starting side
+    if onOppositeSide then
+        table.insert(plan, function() 
+            for i = 1, width do
+                turtleUtil.safeMove({
+                    doDig = false,
+                    retries = retries,
+                    sleepTime = 0.5,
+                    errorOut = true,
+                    direction = turtleUtil.currentDirection()
+                })
+            end
+        end)
     end
-    plan["line3"].postLine = function()
-    end
+
+    table.insert(plan, function() setDirection(Direction.FORWARD) end)
 
     return plan
 end
 
 -- Function to build a single step
 local function boreLayer(plan)
-    for i = 1, plan["line1"].count, 1 do
-        -- plan["line1"].func(tryPlatform, i == 1 and not udFlip)
-        plan["line1"].cont()
+    for _, operation in ipairs(plan) do
+        operation()
     end
-    plan["line1"].postLine()
-    for i = 1, plan["line2"].count, 1 do
-        -- plan["line2"].func(tryPlatform, i == 1 and not udFlip)
-        plan["line2"].cont()
-    end
-    plan["line2"].postLine()
-    for i = 1, plan["line3"].count, 1 do
-        plan["line3"].func()
-        plan["line3"].cont(i == plan["line3"].count)
-    end
-    plan["line3"].postLine()
 end
 
 -- Function to build the entire staircase
 local function bore()
     local plan = buildLayerPlan()
-    print(dump(plan))
-    for i = 1, depth, 1 do
-        safeForward()
-        turnLeft()
+    for d = 1, depth, 1 do
+        print("Boring layer " .. d .. " of " .. depth)
         boreLayer(plan)
-        flipUD()
-    end
-
-    -- move back down
-    if udFlip then
-        flipUD()
-        for i = 1, height - 1, 1 do
-            safeDown()
-        end
     end
 end
 
@@ -362,7 +330,7 @@ local function askParameters()
 
     -- valid input?
     if lor_pre == "r" then
-        flipLR()
+        moveDirection = Direction.RIGHT
     elseif lor_pre == "l" then
         -- do nothing
     else
