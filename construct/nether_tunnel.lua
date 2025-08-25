@@ -31,9 +31,9 @@ local cornerBlock = "minecraft:cobblestone"
 
 local fillCorners = true
 
-local setDirection = turtleUtil.setDirection
+local setRotation = turtleUtil.setRotation
+local Rotation = turtleUtil.Rotation
 local Direction = turtleUtil.Direction
-local InteractDirection = turtleUtil.InteractDirection
 
 local function safeMove(direction)
     return turtleUtil.safeMove({
@@ -46,15 +46,15 @@ local function safeMove(direction)
 end
 
 local function safeForward()
-    return safeMove(InteractDirection.FORWARD)
+    return safeMove(Direction.FORWARD)
 end
 
 local function safeUp()
-    return safeMove(InteractDirection.UP)
+    return safeMove(Direction.UP)
 end
 
 local function safeDown()
-    return safeMove(InteractDirection.DOWN)
+    return safeMove(Direction.DOWN)
 end
 
 local function ensureDig(direction)
@@ -67,15 +67,15 @@ local function ensureDig(direction)
 end
 
 local function ensureDigForward()
-    return ensureDig(InteractDirection.FORWARD)
+    return ensureDig(Direction.FORWARD)
 end
 
 local function ensureDigUp()
-    return ensureDig(InteractDirection.UP)
+    return ensureDig(Direction.UP)
 end
 
 local function ensureDigDown()
-    return ensureDig(InteractDirection.DOWN)
+    return ensureDig(Direction.DOWN)
 end
 
 local function ensurePlace(direction, placeableBlocks)
@@ -97,16 +97,16 @@ end
 
 local function moveDestroyLava(direction)
     local inspect, inspectResult = turtle.inspect()
-    if direction == InteractDirection.UP then
+    if direction == Direction.UP then
         inspect = turtle.inspectUp()
-    elseif direction == InteractDirection.DOWN then
+    elseif direction == Direction.DOWN then
         inspect = turtle.inspectDown()
     end
 
     local moveDirection = nil
-    if direction == InteractDirection.UP then
+    if direction == Direction.UP then
         moveDirection = Direction.UP
-    elseif direction == InteractDirection.DOWN then
+    elseif direction == Direction.DOWN then
         moveDirection = Direction.DOWN
     end
 
@@ -135,7 +135,7 @@ local function ensureReplace(direction, placeableBlocks)
 end
 local function ensureReplaceDown(placeableBlocks)
     return turtleUtil.ensureReplace({
-        direction = InteractDirection.DOWN,
+        direction = Direction.DOWN,
         placeableBlocks = placeableBlocks,
         retries = 3,
         attack = false,
@@ -145,7 +145,7 @@ local function ensureReplaceDown(placeableBlocks)
 end
 local function ensureReplaceUp(placeableBlocks)
     return turtleUtil.ensureReplace({
-        direction = InteractDirection.UP,
+        direction = Direction.UP,
         placeableBlocks = placeableBlocks,
         retries = 3,
         attack = false,
@@ -167,38 +167,38 @@ local function tunnelSlice()
     --       E
     --       K
     safeForward()
-    setDirection(Direction.RIGHT)
+    setRotation(Rotation.RIGHT)
     safeForward()
     if fillCorners then
-        ensureReplace(InteractDirection.DOWN, {cornerBlock})
+        ensureReplace(Direction.DOWN, {cornerBlock})
     end
     safeUp()
-    ensurePlace(InteractDirection.DOWN, {edge1Block})
+    ensurePlace(Direction.DOWN, {edge1Block})
 
     for i = 1, windowHeight do
         safeUp()
-        ensurePlace(InteractDirection.DOWN, {windowBlock})
+        ensurePlace(Direction.DOWN, {windowBlock})
     end
 
     local cornerUp = function()
         if fillCorners then
-            ensureReplace(InteractDirection.UP, {cornerBlock})
+            ensureReplace(Direction.UP, {cornerBlock})
         else
-            moveDestroyLava(InteractDirection.UP)
+            moveDestroyLava(Direction.UP)
         end
     end
 
     cornerUp()
 
-    setDirection(Direction.LEFT)
+    setRotation(Rotation.LEFT)
     safeForward()
-    setDirection(Direction.RIGHT)
+    setRotation(Rotation.RIGHT)
 
-    ensurePlace(InteractDirection.FORWARD, {edge2Block})
-    setDirection(Direction.LEFT)
+    ensurePlace(Direction.FORWARD, {edge2Block})
+    setRotation(Rotation.LEFT)
 
     for i = 1, width do
-        ensureReplace(InteractDirection.UP, {ceilingBlock})
+        ensureReplace(Direction.UP, {ceilingBlock})
 
         for j = 1, windowHeight do
             safeDown()
@@ -206,7 +206,7 @@ local function tunnelSlice()
 
         -- within lower edge level
         safeDown()
-        ensureReplace(InteractDirection.DOWN, {floorBlock})
+        ensureReplace(Direction.DOWN, {floorBlock})
 
         -- wasteful but simple, move back up:
         for j = 1, windowHeight do
@@ -223,29 +223,29 @@ local function tunnelSlice()
     safeForward()
     cornerUp()
     safeDown()
-    ensurePlace(InteractDirection.UP, {edge2Block})
+    ensurePlace(Direction.UP, {edge2Block})
 
     for i = 1, windowHeight do
         safeDown()
-        ensurePlace(InteractDirection.UP, {windowBlock})
+        ensurePlace(Direction.UP, {windowBlock})
     end
 
     if fillCorners then
-        ensureReplace(InteractDirection.DOWN, {cornerBlock})
+        ensureReplace(Direction.DOWN, {cornerBlock})
     end
 
     -- Move inside and place edge block
-    setDirection(Direction.RIGHT)
+    setRotation(Rotation.RIGHT)
     safeForward()
-    setDirection(Direction.LEFT)
-    ensurePlace(InteractDirection.FORWARD, {edge1Block})
+    setRotation(Rotation.LEFT)
+    ensurePlace(Direction.FORWARD, {edge1Block})
 
     -- Go back into starting position for next segment
-    setDirection(Direction.RIGHT)
+    setRotation(Rotation.RIGHT)
     for i = 1, width - 1 do
         safeForward()
     end
-    setDirection(Direction.FORWARD)
+    setRotation(Rotation.FORWARD)
 end
 
 local function buildTunnel()
