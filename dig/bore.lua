@@ -9,18 +9,99 @@ local args = {...}
 local saveTable = tableUtil.saveTable
 local dump = tableUtil.dump
 
-local setDirection = turtleUtil.setDirection
+local setRotation = turtleUtil.setRotation
+local Rotation = turtleUtil.Rotation
 local Direction = turtleUtil.Direction
-local InteractDirection = turtleUtil.InteractDirection
 
 local width = 3
 local height = 5
 local depth = 0
 local enderChestModItemNames = {"enderchests:ender_chest", "enderstorage:ender_chest"}
 local hasEnderChest = false
-local overflowSlotMax = 8
+local hasDeployInventory = false
+--local overflowSlotMax = 12
+local overflowSlotMax = 3
 local retries = 5
-local moveDirection = Direction.LEFT
+local moveRotation = Rotation.LEFT
+
+local movedAlongLayer = 0
+local movedUpInLayer = 0
+local movedInDepth = 0
+
+local function returnToStart()    
+    if moveRotation == turtleUtil.currentRotation() then
+        turtleUtil.turnAround()        
+    end
+
+    for i = 1, movedAlongLayer, 1 do
+        turtleUtil.safeMove({
+            doDig = false,
+            retries = retries,
+            sleepTime = 0.5,
+            errorOut = true,
+            direction = turtleUtil.currentRotation()
+        })
+    end
+    for i = 1, movedUpInLayer, 1 do
+        turtleUtil.safeMove({
+            doDig = false,
+            retries = retries,
+            sleepTime = 0.5,
+            errorOut = true,
+            direction = Direction.DOWN
+        })
+    end
+    setRotation(Rotation.BACKWARD)
+    for i = 1, movedInDepth, 1 do
+        turtleUtil.safeMove({
+            doDig = false,
+            retries = retries,
+            sleepTime = 0.5,
+            errorOut = true,
+            direction = Direction.FORWARD
+        })
+    end
+end
+
+local function returnToPosition()
+    setRotation(Rotation.FORWARD)
+    for i = 1, movedInDepth, 1 do
+        turtleUtil.safeMove({
+            doDig = false,
+            retries = retries,
+            sleepTime = 0.5,
+            errorOut = false,
+            direction = Direction.FORWARD
+        })
+    end
+    for i = 1, movedUpInLayer, 1 do
+        turtleUtil.safeMove({
+            doDig = false,
+            retries = retries,
+            sleepTime = 0.5,
+            errorOut = true,
+            direction = Direction.UP
+        })
+    end
+    setRotation(moveRotation)
+    for i = 1, movedAlongLayer, 1 do
+        turtleUtil.safeMove({
+            doDig = false,
+            retries = retries,
+            sleepTime = 0.5,
+            errorOut = true,
+            direction = turtleUtil.currentRotation()
+        })
+    end
+end
+
+local function dropAll()
+    for i = 1, 16, 1 do
+        turtle.select(i)
+        turtle.drop()
+    end
+    turtle.select(1)
+end
 
 local function forwardItemCursor()
     local slot = turtle.getSelectedSlot()
@@ -56,6 +137,13 @@ local function forwardItemCursor()
             turtle.select(16)
             turtle.dig()
             turtle.select(1)
+        elseif hasDeployInventory then
+            print("Dropping inventory")
+            returnToStart()
+            dropAll()
+            returnToPosition()
+        else
+            -- do nothing, just overflow
         end
     else
         -- not overflowing yet
@@ -63,24 +151,25 @@ local function forwardItemCursor()
 end
 
 -- forward dig
-local function height1Line(moveDirection)
+local function height1Line(moveRotation)
     for i = 1, width, 1 do
         turtleUtil.safeMove({
             doDig = true,
             retries = retries,
             sleepTime = 0.5,
             errorOut = true,
-            direction = moveDirection
+            direction = moveRotation
         })
+        movedAlongLayer = movedAlongLayer + 1
         forwardItemCursor()
     end
 end
 
 -- forward and upward dig
-local function height2Line(moveDirection)
+local function height2Line(moveRotation)
     for i = 1, width, 1 do
         turtleUtil.ensureDig({
-            direction = InteractDirection.UP,
+            direction = Direction.UP,
             retries = retries,
             sleepTime = 0.5,
             errorOut = true
@@ -90,12 +179,13 @@ local function height2Line(moveDirection)
             retries = retries,
             sleepTime = 0.5,
             errorOut = true,
-            direction = moveDirection
+            direction = moveRotation
         })
+        movedAlongLayer = movedAlongLayer + 1
         forwardItemCursor()
     end
     turtleUtil.ensureDig({
-        direction = InteractDirection.UP,
+        direction = Direction.UP,
         retries = retries,
         sleepTime = 0.5,
         errorOut = true
@@ -104,23 +194,26 @@ local function height2Line(moveDirection)
 end
 
 -- forward, upward, and downward dig
-local function height3Line(moveDirection)
+local function height3Line(moveRotation)
     turtleUtil.safeMove({
         doDig = true,
         retries = retries,
         sleepTime = 0.5,
         errorOut = true,
-        direction = InteractDirection.UP
+        direction = Direction.UP
     })
+    movedUpInLayer = movedUpInLayer + 1
+    forwardItemCursor()
     for i = 1, width, 1 do
+        movedAlongLayer = movedAlongLayer + 1
         turtleUtil.ensureDig({
-            direction = InteractDirection.DOWN,
+            direction = Direction.DOWN,
             retries = retries,
             sleepTime = 0.5,
             errorOut = true
         })
         turtleUtil.ensureDig({
-            direction = InteractDirection.UP,
+            direction = Direction.UP,
             retries = retries,
             sleepTime = 0.5,
             errorOut = true
@@ -130,18 +223,18 @@ local function height3Line(moveDirection)
             retries = retries,
             sleepTime = 0.5,
             errorOut = true,
-            direction = moveDirection
+            direction = moveRotation
         })
         forwardItemCursor()
     end
     turtleUtil.ensureDig({
-        direction = InteractDirection.DOWN,
+        direction = Direction.DOWN,
         retries = retries,
         sleepTime = 0.5,
         errorOut = true
     })
     turtleUtil.ensureDig({
-        direction = InteractDirection.UP,
+        direction = Direction.UP,
         retries = retries,
         sleepTime = 0.5,
         errorOut = true
@@ -155,8 +248,9 @@ local function moveUp()
         retries = retries,
         sleepTime = 0.5,
         errorOut = true,
-        direction = InteractDirection.UP
+        direction = Direction.UP
     })
+    movedUpInLayer = movedUpInLayer + 1
     forwardItemCursor()
 end
 
@@ -185,20 +279,28 @@ local function buildLayerPlan()
         print("Ending on starting side")
     end
 
-    table.insert(plan, function() turtleUtil.safeMove({
-        doDig = true,
-        retries = retries,
-        sleepTime = 0.5,
-        errorOut = true,
-        direction = InteractDirection.FORWARD
-    }) end)
+    table.insert(plan, function() 
+        movedAlongLayer = 0
+        movedUpInLayer = 0
+    end)
 
-    table.insert(plan, function() setDirection(moveDirection) end)
+    table.insert(plan, function() 
+        turtleUtil.safeMove({
+            doDig = true,
+            retries = retries,
+            sleepTime = 0.5,
+            errorOut = true,
+            direction = Direction.FORWARD
+        }) 
+        movedInDepth = movedInDepth + 1
+    end)
+
+    table.insert(plan, function() setRotation(moveRotation) end)
 
     if (height3Amount > 0) then
         table.insert(plan, function() 
             for i = 1, height3Amount do 
-                height3Line(turtleUtil.currentDirection())
+                height3Line(turtleUtil.currentRotation())
                 turtleUtil.turnAround()
 
                 -- go up if there is more height 3 lines to do
@@ -218,7 +320,7 @@ local function buildLayerPlan()
                 moveUp()
             end
 
-            height2Line(turtleUtil.currentDirection())
+            height2Line(turtleUtil.currentRotation())
             turtleUtil.turnAround()
 
             if (height1Amount > 0) then
@@ -236,7 +338,7 @@ local function buildLayerPlan()
                 moveUp()
             end
 
-            height1Line(turtleUtil.currentDirection())
+            height1Line(turtleUtil.currentRotation())
             turtleUtil.turnAround()
         end)
     end
@@ -250,8 +352,9 @@ local function buildLayerPlan()
                 retries = retries,
                 sleepTime = 0.5,
                 errorOut = true,
-                direction = InteractDirection.DOWN
+                direction = Direction.DOWN
             })
+            movedUpInLayer = movedUpInLayer - 1
         end
         if height1Amount == 1 then
             turtleUtil.safeMove({
@@ -259,8 +362,9 @@ local function buildLayerPlan()
                 retries = retries,
                 sleepTime = 0.5,
                 errorOut = true,
-                direction = InteractDirection.DOWN
+                direction = Direction.DOWN
             })
+            movedUpInLayer = movedUpInLayer - 1
         end
     end)
 
@@ -273,13 +377,13 @@ local function buildLayerPlan()
                     retries = retries,
                     sleepTime = 0.5,
                     errorOut = true,
-                    direction = turtleUtil.currentDirection()
+                    direction = turtleUtil.currentRotation()
                 })
             end
         end)
     end
 
-    table.insert(plan, function() setDirection(Direction.FORWARD) end)
+    table.insert(plan, function() setRotation(Rotation.FORWARD) end)
 
     return plan
 end
@@ -328,9 +432,20 @@ local function askParameters()
     write("Left or Right (l/r)?")
     local lor_pre = read()
 
+    write("Has deploy inventory (y/n)?")
+    local deploy_pre = read()
+    if deploy_pre == "y" then
+        hasDeployInventory = true
+    elseif deploy_pre == "n" then
+        hasDeployInventory = false
+    else
+        print("invalid input")
+        shell.exit()
+    end
+
     -- valid input?
     if lor_pre == "r" then
-        moveDirection = Direction.RIGHT
+        moveRotation = Rotation.RIGHT
     elseif lor_pre == "l" then
         -- do nothing
     else
