@@ -19,8 +19,8 @@ local depth = 0
 local enderChestModItemNames = {"enderchests:ender_chest", "enderstorage:ender_chest"}
 local hasEnderChest = false
 local hasDeployInventory = false
---local overflowSlotMax = 12
-local overflowSlotMax = 3
+local overflowSlotMax = 13
+--local overflowSlotMax = 3
 local retries = 5
 local moveRotation = Rotation.LEFT
 
