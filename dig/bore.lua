@@ -432,15 +432,19 @@ local function askParameters()
     write("Left or Right (l/r)?")
     local lor_pre = read()
 
-    write("Has deploy inventory (y/n)?")
-    local deploy_pre = read()
-    if deploy_pre == "y" then
-        hasDeployInventory = true
-    elseif deploy_pre == "n" then
-        hasDeployInventory = false
+    if not hasEnderChest then
+        write("Has deploy inventory (y/n)?")
+        local deploy_pre = read()
+        if deploy_pre == "y" then
+            hasDeployInventory = true
+        elseif deploy_pre == "n" then
+            hasDeployInventory = false
+        else
+            print("invalid input")
+            shell.exit()
+        end
     else
-        print("invalid input")
-        shell.exit()
+        hasDeployInventory = false
     end
 
     -- valid input?
