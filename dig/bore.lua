@@ -21,7 +21,7 @@ local hasEnderChest = false
 local hasDeployInventory = false
 local overflowSlotMax = 13
 --local overflowSlotMax = 3
-local retries = 5
+local retries = 25
 local moveRotation = Rotation.LEFT
 
 local movedAlongLayer = 0
