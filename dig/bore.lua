@@ -348,7 +348,7 @@ local function buildLayerPlan()
         print("Moving down " .. (height - 1 + height1Amount) .. " times")
         for i = 1, height - 2 do
             turtleUtil.safeMove({
-                doDig = false,
+                doDig = true,
                 retries = retries,
                 sleepTime = 0.5,
                 errorOut = true,
@@ -358,7 +358,7 @@ local function buildLayerPlan()
         end
         if height1Amount == 1 then
             turtleUtil.safeMove({
-                doDig = false,
+                doDig = true,
                 retries = retries,
                 sleepTime = 0.5,
                 errorOut = true,
@@ -373,7 +373,7 @@ local function buildLayerPlan()
         table.insert(plan, function() 
             for i = 1, width do
                 turtleUtil.safeMove({
-                    doDig = false,
+                    doDig = true,
                     retries = retries,
                     sleepTime = 0.5,
                     errorOut = true,
